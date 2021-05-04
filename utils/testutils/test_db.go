@@ -9,12 +9,15 @@ import (
 )
 
 const (
+	// Creating is when DB is being created by AWS.
 	Creating string = "CREATING"
+	// Active is when DB has been created by AWS.
 	Active   string = "ACTIVE"
 )
 
 var db = dynamodb.New(GetAWSSessionInstance())
 
+// CreateTestTable will create an actual table in AWS. Be careful.
 func CreateTestTable(tableName, hashKey string) {
 	input := &dynamodb.CreateTableInput{
 		AttributeDefinitions: []*dynamodb.AttributeDefinition{

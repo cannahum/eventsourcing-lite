@@ -5,6 +5,7 @@ import (
 	"time"
 )
 
+// Event interface implements the Command interface
 type Event interface {
 	// AggregateID returns the id of the aggregate referenced by the event
 	AggregateID() string

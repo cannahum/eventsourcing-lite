@@ -139,7 +139,7 @@ func TestSave(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName)
 
 	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey,testutils.GetAWSSessionInstance())
+	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
 
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{})
 
@@ -222,7 +222,7 @@ func TestLoad(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName)
 
 	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey,testutils.GetAWSSessionInstance())
+	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{})
 	localRepo := NewRepository(reflect.TypeOf(Todo{}), localStore, serializer)
 	dynamoRepo := NewRepository(reflect.TypeOf(Todo{}), dynamoStore, serializer)

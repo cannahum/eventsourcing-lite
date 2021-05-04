@@ -9,6 +9,7 @@ import (
 
 var sess *session.Session
 
+// GetAWSSessionInstance is a quick way to retrieve AWS session. Uses environment variables.
 func GetAWSSessionInstance() *session.Session {
 	if sess == nil {
 		var conf DynamoDBConfig
@@ -18,6 +19,7 @@ func GetAWSSessionInstance() *session.Session {
 	return sess
 }
 
+// DynamoDBConfig is an object that we fill from .env.
 type DynamoDBConfig struct {
 	Region    string
 	Endpoint  string `envconfig:"DYNAMODB_ENDPOINT"`
@@ -25,11 +27,7 @@ type DynamoDBConfig struct {
 	SecretKey string `envconfig:"SECRET_ACCESS_KEY"`
 }
 
-type AppConfig struct {
-	AppName     string
-	AppDBPrefix string
-}
-
+// GetAWSSession returns a singleton AWS connection object
 func GetAWSSession(conf DynamoDBConfig) *session.Session {
 	var err error
 	if sess == nil {
@@ -51,4 +49,3 @@ func GetAWSSession(conf DynamoDBConfig) *session.Session {
 	}
 	return sess
 }
-

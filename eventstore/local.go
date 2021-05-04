@@ -42,6 +42,7 @@ func (m *memoryEventStore) Load(ctx context.Context, aggregateID string, fromVer
 	return history, nil
 }
 
+// GetLocalStore returns an EventStore in memory - good for tests!
 func GetLocalStore() EventStore {
 	return &memoryEventStore{
 		mux:        &sync.Mutex{},

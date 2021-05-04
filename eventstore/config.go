@@ -5,6 +5,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
+// GetDynamoDB does internal work to create an AWS session and return a DynamoDB connection
 func GetDynamoDB() *dynamodb.DynamoDB {
 	// Initialize a session that the SDK will use to load
 	// credentials from the shared credentials file ~/.aws/credentials

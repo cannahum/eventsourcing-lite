@@ -14,8 +14,11 @@ import (
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
+// ConditionalCheckFailed is const for DB error
 const ConditionalCheckFailed = "ConditionalCheckFailed"
 
+// DynamoDBStore is an event store implementation using DynamoDB
+// This is an object that represents metadata on this table
 type DynamoDBStore struct {
 	tableName string
 	hashKey   string
@@ -23,6 +26,7 @@ type DynamoDBStore struct {
 	api       *dynamodb.DynamoDB
 }
 
+// GetDynamoDBStore returns a new DB store instance
 func GetDynamoDBStore(tableName, partitionKey, rangeKey string, awsSession *session.Session) *DynamoDBStore {
 	store := DynamoDBStore{
 		tableName: tableName,
@@ -41,6 +45,7 @@ func GetDynamoDBStore(tableName, partitionKey, rangeKey string, awsSession *sess
 	return &store
 }
 
+// Load implements the EventStore interface and reads all events for a specific aggregateID
 func (s *DynamoDBStore) Load(ctx context.Context, aggregateID string, fromVersion, toVersion int) (History, error) {
 	input := &dynamodb.QueryInput{
 		TableName:      aws.String(s.tableName),
@@ -96,6 +101,7 @@ func (s *DynamoDBStore) Load(ctx context.Context, aggregateID string, fromVersio
 	return history, nil
 }
 
+// Save implements the EventStore interface and stores an event in DynamoDB
 func (s *DynamoDBStore) Save(ctx context.Context, aggregateID string, records ...Record) error {
 	if len(records) == 0 {
 		return nil

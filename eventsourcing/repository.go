@@ -9,6 +9,8 @@ import (
 	"github.com/cannahum/eventsourcing-lite/eventstore"
 )
 
+// Repository is an object that knows how to serialize a specific type of entity.
+// It also keeps a reference to the store associated with this entity.
 type Repository struct {
 	prototype  reflect.Type
 	store      eventstore.EventStore
@@ -45,6 +47,7 @@ func (r *Repository) Load(ctx context.Context, aggregateID string) (Aggregate, e
 	return aggregate, nil
 }
 
+// Apply creates new event(s) as a result of a command.
 func (r *Repository) Apply(ctx context.Context, command Command) error {
 	if command == nil {
 		return errors.New("Command provided to Repository.Dispatch may not be nil")
@@ -103,6 +106,7 @@ func (r *Repository) newPrototype() Aggregate {
 	return rIf.(Aggregate)
 }
 
+// NewRepository is a factory function that creates a new Repository object
 func NewRepository(t reflect.Type, store eventstore.EventStore, serializer Serializer) *Repository {
 	return &Repository{t, store, serializer}
 }
