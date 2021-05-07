@@ -38,8 +38,10 @@ func GetDynamoDBStore(tableName, partitionKey, rangeKey string, awsSession *sess
 	store.api = api
 
 	// Set up streams
-	if !strings.Contains(*awsSession.Config.Endpoint, "localhost") {
-		store.setUpStreams()
+	if awsSession.Config.Endpoint != nil {
+		if !strings.Contains(*awsSession.Config.Endpoint, "localhost") {
+			store.setUpStreams()
+		}
 	}
 
 	return &store
