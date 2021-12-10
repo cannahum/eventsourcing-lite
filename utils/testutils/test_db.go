@@ -12,13 +12,11 @@ const (
 	// Creating is when DB is being created by AWS.
 	Creating string = "CREATING"
 	// Active is when DB has been created by AWS.
-	Active   string = "ACTIVE"
+	Active string = "ACTIVE"
 )
 
-var db = dynamodb.New(GetAWSSessionInstance())
-
 // CreateTestTable will create an actual table in AWS. Be careful.
-func CreateTestTable(tableName, hashKey string) {
+func CreateTestTable(tableName, hashKey string, db *dynamodb.DynamoDB) {
 	input := &dynamodb.CreateTableInput{
 		AttributeDefinitions: []*dynamodb.AttributeDefinition{
 			{
@@ -69,6 +67,7 @@ func CreateTestTable(tableName, hashKey string) {
 			return
 		case Creating:
 			// Wait a second
+			fmt.Println("Waiting for another second")
 			time.Sleep(1 * time.Second)
 			pollCounter++
 			continue
@@ -82,7 +81,7 @@ func CreateTestTable(tableName, hashKey string) {
 
 // DestroyTestTable - Destroy the local DynamoDB table created for your test
 // If you're using a table in AWS (remote), then don't destroy, reuse instead.
-func DestroyTestTable(tableName string) {
+func DestroyTestTable(tableName string, db *dynamodb.DynamoDB) {
 	_, err := db.DeleteTable(&dynamodb.DeleteTableInput{
 		TableName: aws.String(tableName),
 	})

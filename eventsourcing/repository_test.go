@@ -3,6 +3,7 @@ package eventsourcing
 import (
 	"context"
 	"fmt"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"reflect"
 	"testing"
 	"time"
@@ -16,6 +17,8 @@ import (
 const tableNamePrfx = "todo_es_table_test_"
 const hashKey = "todo_id"
 const rangeKey = "version"
+
+var db = dynamodb.New(testutils.GetAWSSessionInstance())
 
 // Todo is a test object - implements Aggregate and CommandHandler interfaces
 type Todo struct {
@@ -113,8 +116,8 @@ func (t *Todo) Apply(ctx context.Context, command Command) ([]Event, error) {
 
 func TestNew(t *testing.T) {
 	tableName := tableNamePrfx + uuid.NewV4().String()
-	testutils.CreateTestTable(tableName, hashKey)
-	defer testutils.DestroyTestTable(tableName)
+	testutils.CreateTestTable(tableName, hashKey, db)
+	defer testutils.DestroyTestTable(tableName, db)
 
 	store := eventstore.GetLocalStore()
 	r := NewRepository(
@@ -135,8 +138,8 @@ func TestNew(t *testing.T) {
 
 func TestSave(t *testing.T) {
 	tableName := tableNamePrfx + uuid.NewV4().String()
-	testutils.CreateTestTable(tableName, hashKey)
-	defer testutils.DestroyTestTable(tableName)
+	testutils.CreateTestTable(tableName, hashKey, db)
+	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := eventstore.GetLocalStore()
 	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
@@ -218,8 +221,8 @@ func TestSave(t *testing.T) {
 
 func TestLoad(t *testing.T) {
 	tableName := tableNamePrfx + uuid.NewV4().String()
-	testutils.CreateTestTable(tableName, hashKey)
-	defer testutils.DestroyTestTable(tableName)
+	testutils.CreateTestTable(tableName, hashKey, db)
+	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := eventstore.GetLocalStore()
 	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
@@ -353,8 +356,8 @@ func TestLoad(t *testing.T) {
 
 func TestApply(t *testing.T) {
 	tableName := tableNamePrfx + uuid.NewV4().String()
-	testutils.CreateTestTable(tableName, hashKey)
-	defer testutils.DestroyTestTable(tableName)
+	testutils.CreateTestTable(tableName, hashKey, db)
+	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := eventstore.GetLocalStore()
 	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())

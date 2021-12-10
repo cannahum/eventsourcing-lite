@@ -2,6 +2,7 @@ package eventstore
 
 import (
 	"context"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"testing"
 
 	"github.com/cannahum/eventsourcing-lite/utils/testutils"
@@ -9,15 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var tableName = "todo_es_table_test_" + uuid.NewV4().String()
-
 const hashKey = "todo_id"
 const rangeKey = "version"
 
 func TestGetDynamoDBStore(t *testing.T) {
+	db := dynamodb.New(testutils.GetAWSSessionInstance())
+	tableName := "todo_es_table_test_" + uuid.NewV4().String()
+
 	// Create a fake table
-	testutils.CreateTestTable(tableName, hashKey)
-	defer testutils.DestroyTestTable(tableName)
+	testutils.CreateTestTable(tableName, hashKey, db)
+	defer testutils.DestroyTestTable(tableName, db)
 
 	s := GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
 	ctx := context.Background()
