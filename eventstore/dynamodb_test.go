@@ -100,7 +100,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	t.Run("test Save nothing", func(ct *testing.T) {
 		aggID := uuid.NewV4().String()
 		// Create a few records
-		records := []Record{}
+		var records []Record
 
 		err := s.Save(ctx, aggID, records...)
 		assert.Nil(ct, err)
@@ -112,7 +112,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	t.Run("test Save - over 25 items not permitted (error)", func(ct *testing.T) {
 		aggID := uuid.NewV4().String()
 		// Create a few records
-		records := []Record{}
+		var records []Record
 
 		for i := 0; i < 30; i++ {
 			records = append(records, Record{

@@ -20,8 +20,8 @@ const rangeKey = "version"
 
 var db = dynamodb.New(testutils.GetAWSSessionInstance())
 
-// Todo is a test object - implements Aggregate and CommandHandler interfaces
-type Todo struct {
+// MyTodo is a test object - implements Aggregate and CommandHandler interfaces
+type MyTodo struct {
 	ID        string
 	Desc      string
 	Done      bool
@@ -30,7 +30,7 @@ type Todo struct {
 	UpdatedAt time.Time
 }
 
-// Todo Commands
+// MyTodo Commands
 // CreateTodo
 type CreateTodo struct {
 	CommandModel
@@ -42,12 +42,17 @@ type MarkDone struct {
 	CommandModel
 }
 
-// MarkUndone - consider this an invalid command for these tests
+// MarkUndone
 type MarkUndone struct {
 	CommandModel
 }
 
-// Todo events
+// DoUnknown - consider this an invalid command for these tests
+type DoUnknown struct {
+	CommandModel
+}
+
+// MyTodo events
 
 // TodoCreated
 type TodoCreated struct {
@@ -67,18 +72,26 @@ func (t TodoDone) EventType() (reflect.Type, string) {
 	return reflect.TypeOf(t), "TodoDone"
 }
 
-// TodoUndone - consider this an invalid event for these tests
 type TodoUndone struct {
 	Model
-	InvalidField string
 }
 
 func (t TodoUndone) EventType() (reflect.Type, string) {
 	return reflect.TypeOf(t), "TodoUndone"
 }
 
+// TodoUnknown - consider this an invalid event for these tests
+type TodoUnknown struct {
+	Model
+	InvalidField string
+}
+
+func (t TodoUnknown) EventType() (reflect.Type, string) {
+	return reflect.TypeOf(t), "TodoUnknown"
+}
+
 // On implements the Aggregate interface
-func (t *Todo) On(e Event) error {
+func (t *MyTodo) On(e Event) error {
 	switch et := e.(type) {
 	case *TodoCreated:
 		t.Desc = et.Desc
@@ -86,6 +99,8 @@ func (t *Todo) On(e Event) error {
 		t.CreatedAt = et.EventAt()
 	case *TodoDone:
 		t.Done = true
+	case *TodoUndone:
+		t.Done = false
 	default:
 		return fmt.Errorf("unable to handle event %v", et)
 	}
@@ -96,7 +111,7 @@ func (t *Todo) On(e Event) error {
 }
 
 // Apply implements the CommandHandler interface
-func (t *Todo) Apply(ctx context.Context, command Command) ([]Event, error) {
+func (t *MyTodo) Apply(_ context.Context, command Command) ([]Event, error) {
 	switch v := command.(type) {
 	case *CreateTodo:
 		todoCreated := &TodoCreated{
@@ -105,10 +120,21 @@ func (t *Todo) Apply(ctx context.Context, command Command) ([]Event, error) {
 		}
 		return []Event{todoCreated}, nil
 	case *MarkDone:
+		if t.Done {
+			return nil, fmt.Errorf("MyTodo %s is already done", t.ID)
+		}
 		todoDone := &TodoDone{
 			Model: Model{ID: command.AggregateID(), Version: t.Version + 1, At: time.Now()},
 		}
 		return []Event{todoDone}, nil
+	case *MarkUndone:
+		if !t.Done {
+			return nil, fmt.Errorf("MyTodo %s is already undone", t.ID)
+		}
+		todoUndone := &TodoUndone{
+			Model: Model{ID: command.AggregateID(), Version: t.Version + 1, At: time.Now()},
+		}
+		return []Event{todoUndone}, nil
 	default:
 		return nil, fmt.Errorf("unhandled command, %v", v)
 	}
@@ -121,17 +147,19 @@ func TestNew(t *testing.T) {
 
 	store := eventstore.GetLocalStore()
 	r := NewRepository(
-		reflect.TypeOf(Todo{}),
+		reflect.TypeOf(MyTodo{}),
 		store,
-		NewJSONSerializer(TodoCreated{}, TodoDone{}),
+		NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{}),
+		nil,
 	)
 	assert.NotNil(t, r)
 
 	dStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
 	r = NewRepository(
-		reflect.TypeOf(Todo{}),
+		reflect.TypeOf(MyTodo{}),
 		dStore,
-		NewJSONSerializer(TodoCreated{}, TodoDone{}),
+		NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{}),
+		nil,
 	)
 	assert.NotNil(t, r)
 }
@@ -144,16 +172,16 @@ func TestSave(t *testing.T) {
 	localStore := eventstore.GetLocalStore()
 	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
 
-	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{})
+	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 
-	localRepo := NewRepository(reflect.TypeOf(Todo{}), localStore, serializer)
-	dynamoRepo := NewRepository(reflect.TypeOf(Todo{}), dynamoStore, serializer)
+	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)
+	dynamoRepo := NewRepository(reflect.TypeOf(MyTodo{}), dynamoStore, serializer, nil)
 	for _, repo := range []*Repository{localRepo, dynamoRepo} {
 		ctx := context.Background()
 
 		t.Run("saving 0 events", func(ct *testing.T) {
 			err := repo.Save(ctx)
-			assert.Nil(ct, err)
+			assert.NoError(ct, err)
 		})
 
 		t.Run("saving a single event", func(ct *testing.T) {
@@ -167,7 +195,7 @@ func TestSave(t *testing.T) {
 			}
 
 			err := repo.Save(ctx, todoCreatedEvent)
-			assert.Nil(ct, err)
+			assert.NoError(ct, err)
 
 			history, _ := repo.store.Load(ctx, id, 0, 0)
 			for _, record := range history {
@@ -195,9 +223,9 @@ func TestSave(t *testing.T) {
 				},
 			}
 			err := repo.Save(ctx, todoCreatedEvent)
-			assert.Nil(ct, err)
+			assert.NoError(ct, err)
 			err = repo.Save(ctx, todoDoneEvent)
-			assert.Nil(ct, err)
+			assert.NoError(ct, err)
 
 			expectedEvents := []Event{
 				todoCreatedEvent,
@@ -226,16 +254,16 @@ func TestLoad(t *testing.T) {
 
 	localStore := eventstore.GetLocalStore()
 	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
-	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{})
-	localRepo := NewRepository(reflect.TypeOf(Todo{}), localStore, serializer)
-	dynamoRepo := NewRepository(reflect.TypeOf(Todo{}), dynamoStore, serializer)
+	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
+	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)
+	dynamoRepo := NewRepository(reflect.TypeOf(MyTodo{}), dynamoStore, serializer, nil)
 
 	ctx := context.Background()
 	for _, repo := range []*Repository{localRepo, dynamoRepo} {
 		t.Run("non-existent aggregate", func(ct *testing.T) {
 			r, err := repo.Load(ctx, "some-id")
 			assert.Nil(ct, r)
-			assert.NotNil(ct, err)
+			assert.Error(ct, err)
 		})
 
 		t.Run("existent aggregate with multiple events", func(ct *testing.T) {
@@ -259,9 +287,9 @@ func TestLoad(t *testing.T) {
 			_ = repo.Save(ctx, todoDoneEvent)
 
 			agg, err := repo.Load(ctx, id)
-			assert.Nil(ct, err)
-			todo := agg.(*Todo)
-			expected := Todo{
+			assert.NoError(ct, err)
+			todo := agg.(*MyTodo)
+			expected := MyTodo{
 				ID:      id,
 				Desc:    "Do that",
 				Done:    true,
@@ -298,9 +326,9 @@ func TestLoad(t *testing.T) {
 			_ = repo.Save(ctx, todoDoneEvent)
 
 			_, err := repo.Load(ctx, id)
-			assert.Nil(ct, err)
+			assert.NoError(ct, err)
 
-			todoUndoneEvent := TodoUndone{
+			todoUndoneEvent := TodoUnknown{
 				Model: Model{
 					ID:      id,
 					Version: 3,
@@ -308,15 +336,16 @@ func TestLoad(t *testing.T) {
 			}
 			_ = repo.Save(ctx, todoUndoneEvent)
 			_, err = repo.Load(ctx, id)
-			assert.NotNil(ct, err)
+			assert.Error(ct, err)
 		})
 
 		t.Run("invalid aggregation (error)", func(ct *testing.T) {
-			serializer2 := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
+			serializer2 := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUnknown{})
 			r2 := NewRepository(
-				reflect.TypeOf(Todo{}),
+				reflect.TypeOf(MyTodo{}),
 				repo.store,
 				serializer2,
+				nil,
 			)
 
 			var id = uuid.NewV4().String()
@@ -339,9 +368,9 @@ func TestLoad(t *testing.T) {
 			_ = r2.Save(ctx, todoDoneEvent)
 
 			_, err := r2.Load(ctx, id)
-			assert.Nil(ct, err)
+			assert.NoError(ct, err)
 
-			todoUndoneEvent := TodoUndone{
+			todoUndoneEvent := TodoUnknown{
 				Model: Model{
 					ID:      id,
 					Version: 3,
@@ -349,7 +378,7 @@ func TestLoad(t *testing.T) {
 			}
 			_ = r2.Save(ctx, todoUndoneEvent)
 			_, err = r2.Load(ctx, id)
-			assert.NotNil(ct, err)
+			assert.Error(ct, err)
 		})
 	}
 }
@@ -362,9 +391,9 @@ func TestApply(t *testing.T) {
 	localStore := eventstore.GetLocalStore()
 	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
 
-	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{})
-	localRepo := NewRepository(reflect.TypeOf(Todo{}), localStore, serializer)
-	dynamoRepo := NewRepository(reflect.TypeOf(Todo{}), dynamoStore, serializer)
+	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
+	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)
+	dynamoRepo := NewRepository(reflect.TypeOf(MyTodo{}), dynamoStore, serializer, nil)
 
 	ctx := context.Background()
 	for _, repo := range []*Repository{localRepo, dynamoRepo} {
@@ -378,8 +407,18 @@ func TestApply(t *testing.T) {
 				Desc: "Do this",
 			}
 
-			err := repo.Apply(ctx, createCommand)
-			assert.Nil(ct, err)
+			r, err := repo.Apply(ctx, createCommand)
+			returned := r.(*MyTodo)
+			assert.NoError(ct, err)
+			assert.NotNil(ct, returned)
+			assert.Equal(ct, MyTodo{
+				ID:        id,
+				Desc:      "Do this",
+				Done:      false,
+				Version:   1,
+				CreatedAt: returned.CreatedAt,
+				UpdatedAt: returned.UpdatedAt,
+			}, *returned)
 
 			doneCommand := &MarkDone{
 				CommandModel: CommandModel{
@@ -387,13 +426,13 @@ func TestApply(t *testing.T) {
 				},
 			}
 
-			err = repo.Apply(ctx, doneCommand)
-			assert.Nil(ct, err)
+			_, err = repo.Apply(ctx, doneCommand)
+			assert.NoError(ct, err)
 
 			agg, _ := repo.Load(ctx, id)
-			assert.Nil(ct, err)
-			todo := agg.(*Todo)
-			expected := Todo{
+			assert.NoError(ct, err)
+			todo := agg.(*MyTodo)
+			expected := MyTodo{
 				ID:      id,
 				Desc:    "Do this",
 				Done:    true,
@@ -410,8 +449,9 @@ func TestApply(t *testing.T) {
 		})
 
 		t.Run("nil command (error)", func(ct *testing.T) {
-			err := repo.Apply(ctx, nil)
-			assert.NotNil(ct, err)
+			returned, err := repo.Apply(ctx, nil)
+			assert.Error(ct, err)
+			assert.Nil(ct, returned)
 		})
 
 		t.Run("blank aggregateID (error)", func(ct *testing.T) {
@@ -422,8 +462,9 @@ func TestApply(t *testing.T) {
 				Desc: "Do this",
 			}
 
-			err := repo.Apply(ctx, createCommand)
-			assert.NotNil(ct, err)
+			returned, err := repo.Apply(ctx, createCommand)
+			assert.Error(ct, err)
+			assert.Nil(ct, returned)
 		})
 
 		t.Run("invalid command (error)", func(ct *testing.T) {
@@ -436,17 +477,19 @@ func TestApply(t *testing.T) {
 				Desc: "Do this",
 			}
 
-			markUndoneCommand := &MarkUndone{
+			markUndoneCommand := &DoUnknown{
 				CommandModel: CommandModel{
 					ID: id,
 				},
 			}
 
-			err := repo.Apply(ctx, createCommand)
-			assert.Nil(ct, err)
+			returned, err := repo.Apply(ctx, createCommand)
+			assert.NoError(ct, err)
+			assert.NotNil(ct, returned)
 
-			err = repo.Apply(ctx, markUndoneCommand)
-			assert.NotNil(ct, err)
+			returned, err = repo.Apply(ctx, markUndoneCommand)
+			assert.Error(ct, err)
+			assert.Nil(ct, returned)
 		})
 
 		t.Run("command does not implement CommandHandler interface (error)", func(ct *testing.T) {
@@ -459,17 +502,19 @@ func TestApply(t *testing.T) {
 				Desc: "Do this",
 			}
 
-			markUndoneCommand := &MarkUndone{
+			markUndoneCommand := &DoUnknown{
 				CommandModel: CommandModel{
 					ID: id,
 				},
 			}
 
-			err := repo.Apply(ctx, createCommand)
-			assert.Nil(ct, err)
+			returned, err := repo.Apply(ctx, createCommand)
+			assert.NoError(ct, err)
+			assert.NotNil(ct, returned)
 
-			err = repo.Apply(ctx, markUndoneCommand)
-			assert.NotNil(ct, err)
+			returned, err = repo.Apply(ctx, markUndoneCommand)
+			assert.Error(ct, err)
+			assert.Nil(ct, returned)
 		})
 	}
 }

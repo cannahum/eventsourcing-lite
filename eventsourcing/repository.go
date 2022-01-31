@@ -15,6 +15,7 @@ type Repository struct {
 	prototype  reflect.Type
 	store      eventstore.EventStore
 	serializer Serializer
+	observers  []Observer
 }
 
 // Load retrieves the specified aggregate from the underlying store
@@ -48,13 +49,13 @@ func (r *Repository) Load(ctx context.Context, aggregateID string) (Aggregate, e
 }
 
 // Apply creates new event(s) as a result of a command.
-func (r *Repository) Apply(ctx context.Context, command Command) error {
+func (r *Repository) Apply(ctx context.Context, command Command) (Aggregate, error) {
 	if command == nil {
-		return errors.New("Command provided to Repository.Dispatch may not be nil")
+		return nil, errors.New("command provided to Repository.Apply may not be nil")
 	}
 	aggregateID := command.AggregateID()
 	if aggregateID == "" {
-		return errors.New("Command provided to Repository.Dispatch may not contain a blank AggregateID")
+		return nil, errors.New("command provided to Repository.Apply may not contain a blank AggregateID")
 	}
 
 	aggregate, err := r.Load(ctx, aggregateID)
@@ -64,22 +65,36 @@ func (r *Repository) Apply(ctx context.Context, command Command) error {
 
 	h, ok := aggregate.(CommandHandler)
 	if !ok {
-		return fmt.Errorf("aggregate, %v, does not implement CommandHandler", aggregate)
+		return nil, fmt.Errorf("aggregate, %v, does not implement CommandHandler", aggregate)
 	}
 
 	events, err := h.Apply(ctx, command)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = r.Save(ctx, events...)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// Observers wake up here
+	var reloaded Aggregate
+	reloaded, err = r.Load(ctx, aggregateID)
+	if err != nil {
+		return nil, err
+	}
 
-	return nil
+	lastEvent := events[len(events)-1]
+	for _, observer := range r.observers {
+		if observer.WillObserve(reloaded, lastEvent) {
+			err = observer.Observe(reloaded, lastEvent)
+			if err != nil {
+				observer.OnObserveFailed(err)
+			}
+		}
+	}
+
+	return reloaded, nil
 }
 
 // Save persists the events into the underlying Store
@@ -107,6 +122,11 @@ func (r *Repository) newPrototype() Aggregate {
 }
 
 // NewRepository is a factory function that creates a new Repository object
-func NewRepository(t reflect.Type, store eventstore.EventStore, serializer Serializer) *Repository {
-	return &Repository{t, store, serializer}
+func NewRepository(
+	t reflect.Type,
+	store eventstore.EventStore,
+	serializer Serializer,
+	observers []Observer,
+) *Repository {
+	return &Repository{t, store, serializer, observers}
 }

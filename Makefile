@@ -1,6 +1,3 @@
-docker-dev:
-	docker-compose -f ./docker-compose.yml up -d
-
 lint:
 	golint ./...
 
@@ -9,3 +6,6 @@ fmt:
 
 test:
 	go test ./...
+
+local_dynamodb:
+	podman run -p 8000:8000 amazon/dynamodb-local

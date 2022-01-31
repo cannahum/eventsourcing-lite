@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"reflect"
 	"sort"
 	"strconv"
-	"strings"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
 )
 
 // ConditionalCheckFailed is const for DB error
@@ -37,18 +35,11 @@ func GetDynamoDBStore(tableName, partitionKey, rangeKey string, awsSession *sess
 	api := dynamodb.New(awsSession)
 	store.api = api
 
-	// Set up streams
-	if awsSession.Config.Endpoint != nil {
-		if !strings.Contains(*awsSession.Config.Endpoint, "localhost") {
-			store.setUpStreams()
-		}
-	}
-
 	return &store
 }
 
 // Load implements the EventStore interface and reads all events for a specific aggregateID
-func (s *DynamoDBStore) Load(ctx context.Context, aggregateID string, fromVersion, toVersion int) (History, error) {
+func (s *DynamoDBStore) Load(_ context.Context, aggregateID string, fromVersion, toVersion int) (History, error) {
 	input := &dynamodb.QueryInput{
 		TableName:      aws.String(s.tableName),
 		Select:         aws.String("ALL_ATTRIBUTES"),
@@ -163,16 +154,6 @@ func (s *DynamoDBStore) Save(ctx context.Context, aggregateID string, records ..
 		return err
 	}
 	return nil
-}
-
-func (s *DynamoDBStore) setUpStreams() {
-	_, descErr := s.api.DescribeTable(&dynamodb.DescribeTableInput{
-		TableName: aws.String(s.tableName),
-	})
-	if descErr != nil {
-		panic(descErr)
-	}
-	// fmt.Println(tableDesc.Table)
 }
 
 func (s *DynamoDBStore) ensureIdempotent(ctx context.Context, aggregateID string, records ...Record) error {
