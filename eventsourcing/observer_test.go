@@ -97,6 +97,28 @@ func (o *MyTodoDoneObserver) OnObserveFailed(e error) {
 	fmt.Println(e)
 }
 
+type MyTodoFailingObserver struct {
+	howManyTimes int
+	hasFailed    bool
+}
+
+func (o *MyTodoFailingObserver) WillObserve(_ Aggregate, _ Event) bool {
+	return true
+}
+
+func (o *MyTodoFailingObserver) Observe(_ Aggregate, _ Event) error {
+	if o.howManyTimes == 3 {
+		return errors.New("this is now failing")
+	}
+	o.howManyTimes++
+	return nil
+}
+
+func (o *MyTodoFailingObserver) OnObserveFailed(e error) {
+	fmt.Println(e)
+	o.hasFailed = true
+}
+
 func TestApplyObservers(t *testing.T) {
 	localStore := eventstore.GetLocalStore()
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
@@ -104,11 +126,13 @@ func TestApplyObservers(t *testing.T) {
 	defaultObserver := MyTodoDefaultObserver{}
 	createdObserver := MyTodoCreatedObserver{}
 	doneObserver := MyTodoDoneObserver{}
+	failingObserver := MyTodoFailingObserver{}
 
 	repo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, []Observer{
 		&defaultObserver,
 		&createdObserver,
 		&doneObserver,
+		&failingObserver,
 	})
 
 	ctx := context.Background()
@@ -136,6 +160,7 @@ func TestApplyObservers(t *testing.T) {
 	assert.True(t, createdObserver.hasBeenObserved)
 	assert.Equal(t, 1, createdObserver.howManyTimes)
 	assert.Equal(t, 0, doneObserver.howManyTimes)
+	assert.False(t, failingObserver.hasFailed)
 
 	doneCommand := &MarkDone{CommandModel{id}}
 	undoneCommand := &MarkUndone{CommandModel{id}}
@@ -146,6 +171,7 @@ func TestApplyObservers(t *testing.T) {
 	assert.Equal(t, 1, createdObserver.howManyTimes)
 	assert.True(t, doneObserver.isDone)
 	assert.Equal(t, 1, doneObserver.howManyTimes)
+	assert.False(t, failingObserver.hasFailed)
 
 	// Done Command one more time (should result error)
 	_, err = repo.Apply(ctx, doneCommand)
@@ -154,6 +180,7 @@ func TestApplyObservers(t *testing.T) {
 	assert.Equal(t, 1, createdObserver.howManyTimes)
 	assert.True(t, doneObserver.isDone)
 	assert.Equal(t, 1, doneObserver.howManyTimes)
+	assert.False(t, failingObserver.hasFailed)
 
 	_, err = repo.Apply(ctx, undoneCommand)
 	assert.NoError(t, err)
@@ -161,6 +188,7 @@ func TestApplyObservers(t *testing.T) {
 	assert.Equal(t, 1, createdObserver.howManyTimes)
 	assert.False(t, doneObserver.isDone)
 	assert.Equal(t, 2, doneObserver.howManyTimes)
+	assert.False(t, failingObserver.hasFailed)
 
 	_, err = repo.Apply(ctx, doneCommand)
 	assert.NoError(t, err)
@@ -169,4 +197,5 @@ func TestApplyObservers(t *testing.T) {
 	assert.Equal(t, 1, createdObserver.howManyTimes)
 	assert.True(t, doneObserver.isDone)
 	assert.Equal(t, 3, doneObserver.howManyTimes)
+	assert.True(t, failingObserver.hasFailed)
 }
