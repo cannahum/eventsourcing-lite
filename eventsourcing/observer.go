@@ -1,7 +1,7 @@
 package eventsourcing
 
 type Observer interface {
-	WillObserve(aggregate Aggregate, event Event) bool
+	WillObserve(Aggregate, Event) bool
 	Observe(Aggregate, Event) error
 	OnObserveFailed(error)
 }
