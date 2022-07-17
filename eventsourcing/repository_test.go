@@ -3,7 +3,7 @@ package eventsourcing
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"reflect"
 	"testing"
 	"time"
@@ -18,7 +18,8 @@ const tableNamePrfx = "todo_es_table_test_"
 const hashKey = "todo_id"
 const rangeKey = "version"
 
-var db = dynamodb.New(testutils.GetAWSSessionInstance())
+// Create an Amazon DynamoDB client.
+var db = dynamodb.NewFromConfig(testutils.GetAWSCfg())
 
 // MyTodo is a test object - implements Aggregate and CommandHandler interfaces
 type MyTodo struct {
@@ -154,7 +155,7 @@ func TestNew(t *testing.T) {
 	)
 	assert.NotNil(t, r)
 
-	dStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
+	dStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(testutils.GetAWSCfg()))
 	r = NewRepository(
 		reflect.TypeOf(MyTodo{}),
 		dStore,
@@ -170,7 +171,7 @@ func TestSave(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
+	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(testutils.GetAWSCfg()))
 
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 
@@ -207,7 +208,6 @@ func TestSave(t *testing.T) {
 
 		t.Run("saving many events", func(ct *testing.T) {
 			var id = uuid.NewV4().String()
-
 			todoCreatedEvent := TodoCreated{
 				Model: Model{
 					ID:      id,
@@ -215,7 +215,6 @@ func TestSave(t *testing.T) {
 				},
 				Desc: "Do that",
 			}
-
 			todoDoneEvent := TodoDone{
 				Model: Model{
 					ID:      id,
@@ -253,7 +252,7 @@ func TestLoad(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
+	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(testutils.GetAWSCfg()))
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)
 	dynamoRepo := NewRepository(reflect.TypeOf(MyTodo{}), dynamoStore, serializer, nil)
@@ -389,7 +388,7 @@ func TestApply(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
+	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(testutils.GetAWSCfg()))
 
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)

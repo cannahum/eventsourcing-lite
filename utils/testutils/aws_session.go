@@ -1,51 +1,72 @@
 package testutils
 
 import (
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
+	"context"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/kelseyhightower/envconfig"
 )
 
-var sess *session.Session
-
-// GetAWSSessionInstance is a quick way to retrieve AWS session. Uses environment variables.
-func GetAWSSessionInstance() *session.Session {
-	if sess == nil {
-		var conf DynamoDBConfig
-		envconfig.MustProcess("AWSCONFIG", &conf)
-		sess = GetAWSSession(conf)
-	}
-	return sess
-}
-
-// DynamoDBConfig is an object that we fill from .env.
-type DynamoDBConfig struct {
-	Region    string
-	Endpoint  string `envconfig:"DYNAMODB_ENDPOINT"`
+type AwsConfig struct {
+	Region    string `default:"us-east-1"`
 	AccessID  string `envconfig:"ACCESS_KEY_ID"`
 	SecretKey string `envconfig:"SECRET_ACCESS_KEY"`
+	DynamoDb  *DynamoDb
+	Sqs       *Sqs
 }
 
-// GetAWSSession returns a singleton AWS connection object
-func GetAWSSession(conf DynamoDBConfig) *session.Session {
-	var err error
-	if sess == nil {
-		awsConf := aws.Config{
-			Region: aws.String(conf.Region),
-			Credentials: credentials.NewStaticCredentials(
-				conf.AccessID,
-				conf.SecretKey,
-				"",
-			),
+type DynamoDb struct {
+	Endpoint string `envconfig:"ENDPOINT"`
+}
+
+type Sqs struct {
+	QueueName string `envconfig:"QUEUE_NAME"`
+	Endpoint  string `envconfig:"ENDPOINT"`
+}
+
+var awsConf AwsConfig
+
+func init() {
+	envconfig.MustProcess("AWS_CONFIG", &awsConf)
+}
+
+func GetAWSCfg() aws.Config {
+	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
+		if region == awsConf.Region {
+			if service == dynamodb.ServiceID {
+				return aws.Endpoint{
+					PartitionID:       "aws",
+					URL:               awsConf.DynamoDb.Endpoint,
+					SigningRegion:     awsConf.Region,
+					HostnameImmutable: true,
+				}, nil
+			}
+			if service == sqs.ServiceID {
+				return aws.Endpoint{
+					PartitionID:       "aws",
+					URL:               awsConf.Sqs.Endpoint,
+					SigningRegion:     awsConf.Region,
+					HostnameImmutable: true,
+				}, nil
+			}
 		}
-		if conf.Endpoint != "" {
-			awsConf.Endpoint = aws.String(conf.Endpoint)
-		}
-		sess, err = session.NewSession(&awsConf)
-		if err != nil {
-			panic(err)
-		}
+		// returning EndpointNotFoundError will allow the service to fallback to it's default resolution
+		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
+	})
+
+	cfg, err := config.LoadDefaultConfig(
+		context.TODO(),
+		config.WithRegion(awsConf.Region),
+		config.WithCredentialsProvider(
+			credentials.NewStaticCredentialsProvider(awsConf.AccessID, awsConf.SecretKey, ""),
+		),
+		config.WithEndpointResolverWithOptions(customResolver),
+	)
+	if err != nil {
+		panic(err)
 	}
-	return sess
+	return cfg
 }

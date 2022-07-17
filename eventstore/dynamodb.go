@@ -4,9 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"reflect"
 	"sort"
 	"strconv"
@@ -21,77 +22,57 @@ type DynamoDBStore struct {
 	tableName string
 	hashKey   string
 	rangeKey  string
-	api       *dynamodb.DynamoDB
+	api       *dynamodb.Client
 }
 
 // GetDynamoDBStore returns a new DB store instance
-func GetDynamoDBStore(tableName, partitionKey, rangeKey string, awsSession *session.Session) *DynamoDBStore {
+func GetDynamoDBStore(tableName, partitionKey, rangeKey string, db *dynamodb.Client) *DynamoDBStore {
 	store := DynamoDBStore{
 		tableName: tableName,
 		hashKey:   partitionKey,
 		rangeKey:  rangeKey,
 	}
-
-	api := dynamodb.New(awsSession)
-	store.api = api
-
+	store.api = db
 	return &store
 }
 
 // Load implements the EventStore interface and reads all events for a specific aggregateID
-func (s *DynamoDBStore) Load(_ context.Context, aggregateID string, fromVersion, toVersion int) (History, error) {
+func (s *DynamoDBStore) Load(ctx context.Context, aggregateID string, fromVersion, toVersion int) (History, error) {
 	input := &dynamodb.QueryInput{
 		TableName:      aws.String(s.tableName),
-		Select:         aws.String("ALL_ATTRIBUTES"),
+		Select:         types.SelectAllAttributes,
 		ConsistentRead: aws.Bool(true),
-		ExpressionAttributeNames: map[string]*string{
-			"#key": aws.String(s.hashKey),
+		ExpressionAttributeNames: map[string]string{
+			"#key": s.hashKey,
 		},
-		ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-			":key": {S: aws.String(aggregateID)},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":key": &types.AttributeValueMemberS{Value: aggregateID},
 		},
 	}
 
 	if toVersion > 0 {
 		input.KeyConditionExpression = aws.String("#key = :key AND #partition BETWEEN :from AND :to")
-		input.ExpressionAttributeNames["#partition"] = aws.String(s.rangeKey)
-		input.ExpressionAttributeValues[":from"] = &dynamodb.AttributeValue{N: aws.String(strconv.Itoa(fromVersion))}
-		input.ExpressionAttributeValues[":to"] = &dynamodb.AttributeValue{N: aws.String(strconv.Itoa(toVersion))}
+		input.ExpressionAttributeNames["#partition"] = s.rangeKey
+		input.ExpressionAttributeValues[":from"] = &types.AttributeValueMemberN{Value: strconv.Itoa(fromVersion)}
+		input.ExpressionAttributeValues[":to"] = &types.AttributeValueMemberN{Value: strconv.Itoa(toVersion)}
 	} else if fromVersion > 0 {
 		input.KeyConditionExpression = aws.String("#key = :key AND #partition >= :from")
-		input.ExpressionAttributeNames["#partition"] = aws.String(s.rangeKey)
-		input.ExpressionAttributeValues[":from"] = &dynamodb.AttributeValue{N: aws.String(strconv.Itoa(fromVersion))}
+		input.ExpressionAttributeNames["#partition"] = s.rangeKey
+		input.ExpressionAttributeValues[":from"] = &types.AttributeValueMemberN{Value: strconv.Itoa(fromVersion)}
 	} else {
 		input.KeyConditionExpression = aws.String("#key = :key")
 	}
 
 	history := make(History, 0, toVersion)
-	out, err := s.api.Query(input)
+	out, err := s.api.Query(ctx, input)
 	if err != nil {
 		return nil, err
 	}
-
-	for _, item := range out.Items {
-		var version int
-		var data []byte
-		if versionAttr, ok := item[s.rangeKey]; !ok {
-			continue
-		} else {
-			versionStr := versionAttr.N
-			version, err = strconv.Atoi(*versionStr)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		data = item["event_data"].B
-		history = append(history, Record{
-			Version: version,
-			Data:    data,
-		})
+	var records []Record
+	if err = attributevalue.UnmarshalListOfMaps(out.Items, &records); err != nil {
+		return nil, err
 	}
-
-	return history, nil
+	return append(history, records...), nil
 }
 
 // Save implements the EventStore interface and stores an event in DynamoDB
@@ -117,16 +98,16 @@ func (s *DynamoDBStore) Save(ctx context.Context, aggregateID string, records ..
 	input := &dynamodb.TransactWriteItemsInput{}
 
 	for _, e := range records {
-		keyClause := map[string]*dynamodb.AttributeValue{}
-		keyClause[s.hashKey] = &dynamodb.AttributeValue{S: aws.String(aggregateID)}
-		keyClause[s.rangeKey] = &dynamodb.AttributeValue{N: aws.String(strconv.Itoa(e.Version))}
+		keyClause := map[string]types.AttributeValue{}
+		keyClause[s.hashKey] = &types.AttributeValueMemberS{Value: aggregateID}
+		keyClause[s.rangeKey] = &types.AttributeValueMemberN{Value: strconv.Itoa(e.Version)}
 
-		twi := dynamodb.TransactWriteItem{
-			Update: &dynamodb.Update{
+		twi := types.TransactWriteItem{
+			Update: &types.Update{
 				TableName: aws.String(s.tableName),
 				Key:       keyClause,
-				ExpressionAttributeValues: map[string]*dynamodb.AttributeValue{
-					":r": {B: e.Data},
+				ExpressionAttributeValues: map[string]types.AttributeValue{
+					":r": &types.AttributeValueMemberB{Value: e.Data},
 				},
 				ConditionExpression: aws.String(
 					fmt.Sprintf("attribute_not_exists(%s)", s.rangeKey),
@@ -134,12 +115,12 @@ func (s *DynamoDBStore) Save(ctx context.Context, aggregateID string, records ..
 				UpdateExpression: aws.String("set event_data = :r"),
 			},
 		}
-		input.TransactItems = append(input.TransactItems, &twi)
+		input.TransactItems = append(input.TransactItems, twi)
 	}
 
-	_, err := s.api.TransactWriteItems(input)
+	_, err := s.api.TransactWriteItems(ctx, input)
 	if err != nil {
-		if txnCanceled, ok := err.(*dynamodb.TransactionCanceledException); ok {
+		if txnCanceled, ok := err.(*types.TransactionCanceledException); ok {
 			// awsError.Code().
 			// if len() {}
 			// if v.Code() == ConditionalCheckFailed {

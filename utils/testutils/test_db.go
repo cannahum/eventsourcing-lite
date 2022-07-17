@@ -1,88 +1,66 @@
 package testutils
 
 import (
+	"context"
 	"fmt"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 	"time"
-
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
-)
-
-const (
-	// Creating is when DB is being created by AWS.
-	Creating string = "CREATING"
-	// Active is when DB has been created by AWS.
-	Active string = "ACTIVE"
 )
 
 // CreateTestTable will create an actual table in AWS. Be careful.
-func CreateTestTable(tableName, hashKey string, db *dynamodb.DynamoDB) {
+func CreateTestTable(tableName, hashKey string, db *dynamodb.Client) {
 	input := &dynamodb.CreateTableInput{
-		AttributeDefinitions: []*dynamodb.AttributeDefinition{
+		AttributeDefinitions: []types.AttributeDefinition{
 			{
 				AttributeName: aws.String(hashKey),
-				AttributeType: aws.String("S"),
+				AttributeType: types.ScalarAttributeTypeS,
 			},
 			{
 				AttributeName: aws.String("version"),
-				AttributeType: aws.String("N"),
+				AttributeType: types.ScalarAttributeTypeN,
 			},
 		},
-		KeySchema: []*dynamodb.KeySchemaElement{
+		KeySchema: []types.KeySchemaElement{
 			{
 				AttributeName: aws.String(hashKey),
-				KeyType:       aws.String("HASH"),
+				KeyType:       types.KeyTypeHash,
 			},
 			{
 				AttributeName: aws.String("version"),
-				KeyType:       aws.String("RANGE"),
+				KeyType:       types.KeyTypeRange,
 			},
 		},
-		ProvisionedThroughput: &dynamodb.ProvisionedThroughput{
+		ProvisionedThroughput: &types.ProvisionedThroughput{
 			ReadCapacityUnits:  aws.Int64(1),
 			WriteCapacityUnits: aws.Int64(1),
 		},
 		TableName: aws.String(tableName),
-		StreamSpecification: &dynamodb.StreamSpecification{
-			StreamEnabled:  aws.Bool(true),
-			StreamViewType: aws.String("NEW_AND_OLD_IMAGES"),
-		},
 	}
 
-	table, err := db.CreateTable(input)
+	_, err := db.CreateTable(context.TODO(), input)
 	if err != nil {
-		if _, alreadyExists := err.(*dynamodb.ResourceInUseException); !alreadyExists {
+		if _, alreadyExists := err.(*types.ResourceInUseException); !alreadyExists {
 			panic(err)
 		}
 		fmt.Println("Table already exists")
 		return
 	}
 
-	pollCounter := 0
-	for pollCounter < 60 {
-		status := *table.TableDescription.TableStatus
-		switch status {
-		case Active:
-			fmt.Println("Table has been created")
-			return
-		case Creating:
-			// Wait a second
-			fmt.Println("Waiting for another second")
-			time.Sleep(1 * time.Second)
-			pollCounter++
-			continue
-		default:
-			panic("Unknown TableStatus " + status)
-		}
+	maxWaitTime := time.Minute
+	waiter := dynamodb.NewTableExistsWaiter(db)
+	err = waiter.Wait(context.TODO(), &dynamodb.DescribeTableInput{TableName: aws.String(tableName)}, maxWaitTime)
+	if err != nil {
+		panic(err)
 	}
-
-	panic("Table has not been created")
+	fmt.Printf("table %s is ready for use\n", tableName)
 }
 
 // DestroyTestTable - Destroy the local DynamoDB table created for your test
 // If you're using a table in AWS (remote), then don't destroy, reuse instead.
-func DestroyTestTable(tableName string, db *dynamodb.DynamoDB) {
-	_, err := db.DeleteTable(&dynamodb.DeleteTableInput{
+func DestroyTestTable(tableName string, db *dynamodb.Client) {
+	_, err := db.DeleteTable(context.TODO(), &dynamodb.DeleteTableInput{
 		TableName: aws.String(tableName),
 	})
 	if err != nil {

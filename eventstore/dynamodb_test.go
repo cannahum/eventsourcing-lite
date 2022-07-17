@@ -2,7 +2,7 @@ package eventstore
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"testing"
 
 	"github.com/cannahum/eventsourcing-lite/utils/testutils"
@@ -14,14 +14,14 @@ const hashKey = "todo_id"
 const rangeKey = "version"
 
 func TestGetDynamoDBStore(t *testing.T) {
-	db := dynamodb.New(testutils.GetAWSSessionInstance())
+	db := dynamodb.NewFromConfig(testutils.GetAWSCfg())
 	tableName := "todo_es_table_test_" + uuid.NewV4().String()
 
 	// Create a fake table
 	testutils.CreateTestTable(tableName, hashKey, db)
 	defer testutils.DestroyTestTable(tableName, db)
 
-	s := GetDynamoDBStore(tableName, hashKey, rangeKey, testutils.GetAWSSessionInstance())
+	s := GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(testutils.GetAWSCfg()))
 	ctx := context.Background()
 
 	t.Run("test Load function", func(ct *testing.T) {
@@ -64,10 +64,8 @@ func TestGetDynamoDBStore(t *testing.T) {
 		err := s.Save(ctx, aggID, records...)
 		assert.Nil(ct, err)
 
-		// Saving the same thing should not return an error
-		// It's as if this succeeded.
 		err2 := s.Save(ctx, aggID, records...)
-		assert.Nil(ct, err2)
+		assert.NotNil(ct, err2)
 
 		err3 := s.Save(ctx, aggID, competingRecords...)
 		assert.NotNil(ct, err3)
@@ -77,7 +75,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 			Data:    []byte("new data"),
 		})
 		err4 := s.Save(ctx, aggID, competingRecords...)
-		assert.Equal(ct, err4.Error(), ConditionalCheckFailed)
+		assert.NotNil(ct, err4)
 	})
 
 	t.Run("test Save -> Load", func(ct *testing.T) {
