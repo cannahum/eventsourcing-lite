@@ -1,7 +1,9 @@
 package eventsourcing
 
+import "context"
+
 type Observer interface {
-	WillObserve(Aggregate, Event) bool
-	Observe(Aggregate, Event) error
-	OnObserveFailed(error)
+	WillObserve(context.Context, Aggregate, Event) bool
+	Observe(context.Context, Aggregate, Event) error
+	OnObserveFailed(context.Context, error)
 }

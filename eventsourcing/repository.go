@@ -86,10 +86,10 @@ func (r *Repository) Apply(ctx context.Context, command Command) (Aggregate, err
 
 	lastEvent := events[len(events)-1]
 	for _, observer := range r.observers {
-		if observer.WillObserve(reloaded, lastEvent) {
-			err = observer.Observe(reloaded, lastEvent)
+		if observer.WillObserve(ctx, reloaded, lastEvent) {
+			err = observer.Observe(ctx, reloaded, lastEvent)
 			if err != nil {
-				observer.OnObserveFailed(err)
+				observer.OnObserveFailed(ctx, err)
 			}
 		}
 	}

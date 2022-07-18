@@ -16,17 +16,17 @@ type MyTodoDefaultObserver struct {
 	howManyTimes    int
 }
 
-func (o *MyTodoDefaultObserver) WillObserve(_ Aggregate, _ Event) bool {
+func (o *MyTodoDefaultObserver) WillObserve(_ context.Context, _ Aggregate, _ Event) bool {
 	return true
 }
 
-func (o *MyTodoDefaultObserver) Observe(_ Aggregate, _ Event) error {
+func (o *MyTodoDefaultObserver) Observe(_ context.Context, _ Aggregate, _ Event) error {
 	o.hasBeenObserved = true
 	o.howManyTimes++
 	return nil
 }
 
-func (o *MyTodoDefaultObserver) OnObserveFailed(e error) {
+func (o *MyTodoDefaultObserver) OnObserveFailed(_ context.Context, e error) {
 	fmt.Println(e)
 }
 
@@ -35,7 +35,7 @@ type MyTodoCreatedObserver struct {
 	howManyTimes    int
 }
 
-func (o *MyTodoCreatedObserver) WillObserve(_ Aggregate, e Event) bool {
+func (o *MyTodoCreatedObserver) WillObserve(_ context.Context, _ Aggregate, e Event) bool {
 	switch e.(type) {
 	case *TodoCreated:
 		return true
@@ -44,14 +44,14 @@ func (o *MyTodoCreatedObserver) WillObserve(_ Aggregate, e Event) bool {
 	}
 }
 
-func (o *MyTodoCreatedObserver) Observe(a Aggregate, _ Event) error {
+func (o *MyTodoCreatedObserver) Observe(_ context.Context, a Aggregate, _ Event) error {
 	_ = a.(*MyTodo)
 	o.hasBeenObserved = true
 	o.howManyTimes++
 	return nil
 }
 
-func (o *MyTodoCreatedObserver) OnObserveFailed(e error) {
+func (o *MyTodoCreatedObserver) OnObserveFailed(_ context.Context, e error) {
 	fmt.Println(e)
 }
 
@@ -60,7 +60,7 @@ type MyTodoDoneObserver struct {
 	howManyTimes int
 }
 
-func (o *MyTodoDoneObserver) WillObserve(_ Aggregate, e Event) bool {
+func (o *MyTodoDoneObserver) WillObserve(_ context.Context, _ Aggregate, e Event) bool {
 	switch e.(type) {
 	case *TodoDone, *TodoUndone:
 		return true
@@ -69,7 +69,7 @@ func (o *MyTodoDoneObserver) WillObserve(_ Aggregate, e Event) bool {
 	}
 }
 
-func (o *MyTodoDoneObserver) Observe(a Aggregate, e Event) error {
+func (o *MyTodoDoneObserver) Observe(_ context.Context, a Aggregate, e Event) error {
 	td := a.(*MyTodo)
 	switch e.(type) {
 	case *TodoDone:
@@ -93,7 +93,7 @@ func (o *MyTodoDoneObserver) Observe(a Aggregate, e Event) error {
 	return nil
 }
 
-func (o *MyTodoDoneObserver) OnObserveFailed(e error) {
+func (o *MyTodoDoneObserver) OnObserveFailed(_ context.Context, e error) {
 	fmt.Println(e)
 }
 
@@ -102,11 +102,11 @@ type MyTodoFailingObserver struct {
 	hasFailed    bool
 }
 
-func (o *MyTodoFailingObserver) WillObserve(_ Aggregate, _ Event) bool {
+func (o *MyTodoFailingObserver) WillObserve(_ context.Context, _ Aggregate, _ Event) bool {
 	return true
 }
 
-func (o *MyTodoFailingObserver) Observe(_ Aggregate, _ Event) error {
+func (o *MyTodoFailingObserver) Observe(_ context.Context, _ Aggregate, _ Event) error {
 	if o.howManyTimes == 3 {
 		return errors.New("this is now failing")
 	}
@@ -114,7 +114,7 @@ func (o *MyTodoFailingObserver) Observe(_ Aggregate, _ Event) error {
 	return nil
 }
 
-func (o *MyTodoFailingObserver) OnObserveFailed(e error) {
+func (o *MyTodoFailingObserver) OnObserveFailed(_ context.Context, e error) {
 	fmt.Println(e)
 	o.hasFailed = true
 }
