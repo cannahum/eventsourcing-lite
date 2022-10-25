@@ -9,7 +9,6 @@ import (
 	"time"
 )
 
-// CreateTestTable will create an actual table in AWS. Be careful.
 func CreateTestTable(tableName, hashKey string, db *dynamodb.Client) {
 	input := &dynamodb.CreateTableInput{
 		AttributeDefinitions: []types.AttributeDefinition{
