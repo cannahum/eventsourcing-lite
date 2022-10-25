@@ -32,3 +32,10 @@ func CreateTestQueue(name string, isFifo bool, q *sqs.Client) string {
 	}
 	return *qq.QueueUrl
 }
+
+func DestroyQueue(q *sqs.Client, url string) {
+	_, err := q.DeleteQueue(context.TODO(), &sqs.DeleteQueueInput{QueueUrl: aws.String(url)})
+	if err != nil {
+		fmt.Printf("failed to delete test queue %s\n", url)
+	}
+}
