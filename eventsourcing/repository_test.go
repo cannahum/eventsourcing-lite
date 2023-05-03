@@ -3,10 +3,11 @@ package eventsourcing
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 	"github.com/cannahum/eventsourcing-lite/eventstore"
 	"github.com/cannahum/eventsourcing-lite/utils/testutils"

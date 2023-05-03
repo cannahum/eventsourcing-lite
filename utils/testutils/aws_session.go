@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"context"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -53,7 +54,7 @@ func GetAWSCfg() aws.Config {
 				}, nil
 			}
 		}
-		// returning EndpointNotFoundError will allow the service to fallback to it's default resolution
+		// returning EndpointNotFoundError will allow the service to fall back to its default resolution
 		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
 	})
 

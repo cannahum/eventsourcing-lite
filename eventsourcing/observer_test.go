@@ -4,11 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"testing"
+
 	"github.com/cannahum/eventsourcing-lite/eventstore"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
-	"reflect"
-	"testing"
 )
 
 type MyTodoDefaultObserver struct {

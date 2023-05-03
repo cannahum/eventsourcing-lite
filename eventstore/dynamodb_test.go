@@ -2,8 +2,9 @@ package eventstore
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"testing"
+
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 	"github.com/cannahum/eventsourcing-lite/utils/testutils"
 	uuid "github.com/satori/go.uuid"
