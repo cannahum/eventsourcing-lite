@@ -4,17 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
+	"sort"
+	"strconv"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"reflect"
-	"sort"
-	"strconv"
 )
 
 // ConditionalCheckFailed is const for DB error
 const ConditionalCheckFailed = "ConditionalCheckFailed"
+
+// MaxBatchEventCount specifies how many new events we are willing to process in one command
+const MaxBatchEventCount = 25
 
 // DynamoDBStore is an event store implementation using DynamoDB
 // This is an object that represents metadata on this table
@@ -50,16 +54,17 @@ func (s *DynamoDBStore) Load(ctx context.Context, aggregateID string, fromVersio
 		},
 	}
 
-	if toVersion > 0 {
+	switch {
+	case toVersion > 0:
 		input.KeyConditionExpression = aws.String("#key = :key AND #partition BETWEEN :from AND :to")
 		input.ExpressionAttributeNames["#partition"] = s.rangeKey
 		input.ExpressionAttributeValues[":from"] = &types.AttributeValueMemberN{Value: strconv.Itoa(fromVersion)}
 		input.ExpressionAttributeValues[":to"] = &types.AttributeValueMemberN{Value: strconv.Itoa(toVersion)}
-	} else if fromVersion > 0 {
+	case fromVersion > 0:
 		input.KeyConditionExpression = aws.String("#key = :key AND #partition >= :from")
 		input.ExpressionAttributeNames["#partition"] = s.rangeKey
 		input.ExpressionAttributeValues[":from"] = &types.AttributeValueMemberN{Value: strconv.Itoa(fromVersion)}
-	} else {
+	default:
 		input.KeyConditionExpression = aws.String("#key = :key")
 	}
 
@@ -69,7 +74,8 @@ func (s *DynamoDBStore) Load(ctx context.Context, aggregateID string, fromVersio
 		return nil, err
 	}
 	var records []Record
-	if err = attributevalue.UnmarshalListOfMaps(out.Items, &records); err != nil {
+	err = attributevalue.UnmarshalListOfMaps(out.Items, &records)
+	if err != nil {
 		return nil, err
 	}
 	return append(history, records...), nil
@@ -81,7 +87,7 @@ func (s *DynamoDBStore) Save(ctx context.Context, aggregateID string, records ..
 		return nil
 	}
 
-	if len(records) > 25 {
+	if len(records) > MaxBatchEventCount {
 		return errors.New("not implemented: can't save 25 events at a time")
 	}
 

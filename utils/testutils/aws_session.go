@@ -2,6 +2,7 @@ package testutils
 
 import (
 	"context"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -11,57 +12,57 @@ import (
 )
 
 type AwsConfig struct {
-	Region    string `default:"us-east-1"`
-	AccessID  string `envconfig:"ACCESS_KEY_ID"`
-	SecretKey string `envconfig:"SECRET_ACCESS_KEY"`
-	DynamoDb  *DynamoDb
-	Sqs       *Sqs
+	Region          string `default:"us-east-1"`
+	AccessKeyID     string `split_words:"true"`
+	SecretAccessKey string `split_words:"true"`
+	DynamoDB        *DynamoDB
+	Sqs             *SQS
 }
 
-type DynamoDb struct {
-	Endpoint string `envconfig:"ENDPOINT"`
+type DynamoDB struct {
+	Endpoint string
 }
 
-type Sqs struct {
-	QueueName string `envconfig:"QUEUE_NAME"`
-	Endpoint  string `envconfig:"ENDPOINT"`
+type SQS struct {
+	QueueName string
+	Endpoint  string
 }
 
-var awsConf AwsConfig
-
-func init() {
-	envconfig.MustProcess("AWS_CONFIG", &awsConf)
+func NewConfig() *AwsConfig {
+	var conf AwsConfig
+	envconfig.MustProcess("AWS_CONFIG", &conf)
+	return &conf
 }
 
-func GetAWSCfg() aws.Config {
+func (c *AwsConfig) GetAWSCfg() aws.Config {
 	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if region == awsConf.Region {
+		if region == c.Region {
 			if service == dynamodb.ServiceID {
 				return aws.Endpoint{
 					PartitionID:       "aws",
-					URL:               awsConf.DynamoDb.Endpoint,
-					SigningRegion:     awsConf.Region,
+					URL:               c.DynamoDB.Endpoint,
+					SigningRegion:     c.Region,
 					HostnameImmutable: true,
 				}, nil
 			}
 			if service == sqs.ServiceID {
 				return aws.Endpoint{
 					PartitionID:       "aws",
-					URL:               awsConf.Sqs.Endpoint,
-					SigningRegion:     awsConf.Region,
+					URL:               c.Sqs.Endpoint,
+					SigningRegion:     c.Region,
 					HostnameImmutable: true,
 				}, nil
 			}
 		}
-		// returning EndpointNotFoundError will allow the service to fallback to it's default resolution
+		// returning EndpointNotFoundError will allow the service to fall back to its default resolution
 		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
 	})
 
 	cfg, err := config.LoadDefaultConfig(
 		context.TODO(),
-		config.WithRegion(awsConf.Region),
+		config.WithRegion(c.Region),
 		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(awsConf.AccessID, awsConf.SecretKey, ""),
+			credentials.NewStaticCredentialsProvider(c.AccessKeyID, c.SecretAccessKey, ""),
 		),
 		config.WithEndpointResolverWithOptions(customResolver),
 	)

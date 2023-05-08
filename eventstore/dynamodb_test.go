@@ -2,8 +2,9 @@ package eventstore
 
 import (
 	"context"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"testing"
+
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 	"github.com/cannahum/eventsourcing-lite/utils/testutils"
 	uuid "github.com/satori/go.uuid"
@@ -13,15 +14,17 @@ import (
 const hashKey = "todo_id"
 const rangeKey = "version"
 
+var conf = testutils.NewConfig()
+
 func TestGetDynamoDBStore(t *testing.T) {
-	db := dynamodb.NewFromConfig(testutils.GetAWSCfg())
+	db := dynamodb.NewFromConfig(conf.GetAWSCfg())
 	tableName := "todo_es_table_test_" + uuid.NewV4().String()
 
 	// Create a fake table
 	testutils.CreateTestTable(tableName, hashKey, db)
 	defer testutils.DestroyTestTable(tableName, db)
 
-	s := GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(testutils.GetAWSCfg()))
+	s := GetDynamoDBStore(tableName, hashKey, rangeKey, db)
 	ctx := context.Background()
 
 	t.Run("test Load function", func(ct *testing.T) {

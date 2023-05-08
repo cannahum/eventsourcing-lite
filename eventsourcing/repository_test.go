@@ -3,10 +3,11 @@ package eventsourcing
 import (
 	"context"
 	"fmt"
-	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"reflect"
 	"testing"
 	"time"
+
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
 	"github.com/cannahum/eventsourcing-lite/eventstore"
 	"github.com/cannahum/eventsourcing-lite/utils/testutils"
@@ -19,7 +20,8 @@ const hashKey = "todo_id"
 const rangeKey = "version"
 
 // Create an Amazon DynamoDB client.
-var db = dynamodb.NewFromConfig(testutils.GetAWSCfg())
+var conf = testutils.NewConfig()
+var db = dynamodb.NewFromConfig(conf.GetAWSCfg())
 
 // MyTodo is a test object - implements Aggregate and CommandHandler interfaces
 type MyTodo struct {
@@ -61,7 +63,7 @@ type TodoCreated struct {
 	Desc string
 }
 
-func (t TodoCreated) EventType() (reflect.Type, string) {
+func (t TodoCreated) EventType() (rt reflect.Type, s string) {
 	return reflect.TypeOf(t), "TodoCreated"
 }
 
@@ -69,7 +71,7 @@ type TodoDone struct {
 	Model
 }
 
-func (t TodoDone) EventType() (reflect.Type, string) {
+func (t TodoDone) EventType() (rt reflect.Type, s string) {
 	return reflect.TypeOf(t), "TodoDone"
 }
 
@@ -77,7 +79,7 @@ type TodoUndone struct {
 	Model
 }
 
-func (t TodoUndone) EventType() (reflect.Type, string) {
+func (t TodoUndone) EventType() (rt reflect.Type, s string) {
 	return reflect.TypeOf(t), "TodoUndone"
 }
 
@@ -87,7 +89,7 @@ type TodoUnknown struct {
 	InvalidField string
 }
 
-func (t TodoUnknown) EventType() (reflect.Type, string) {
+func (t TodoUnknown) EventType() (rt reflect.Type, s string) { //nolint: gocritic
 	return reflect.TypeOf(t), "TodoUnknown"
 }
 
@@ -155,7 +157,7 @@ func TestNew(t *testing.T) {
 	)
 	assert.NotNil(t, r)
 
-	dStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(testutils.GetAWSCfg()))
+	dStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
 	r = NewRepository(
 		reflect.TypeOf(MyTodo{}),
 		dStore,
@@ -171,7 +173,7 @@ func TestSave(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(testutils.GetAWSCfg()))
+	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
 
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 
@@ -252,7 +254,7 @@ func TestLoad(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(testutils.GetAWSCfg()))
+	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)
 	dynamoRepo := NewRepository(reflect.TypeOf(MyTodo{}), dynamoStore, serializer, nil)
@@ -388,7 +390,7 @@ func TestApply(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(testutils.GetAWSCfg()))
+	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
 
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)
