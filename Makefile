@@ -17,4 +17,4 @@ coverage_local:
 	godotenv -f ./.env go test ./...
 
 local_dynamodb:
-	podman run -p 8000:8000 amazon/dynamodb-local
+	docker run -p 8000:8000 amazon/dynamodb-local

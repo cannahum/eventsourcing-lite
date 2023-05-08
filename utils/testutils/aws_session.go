@@ -12,20 +12,20 @@ import (
 )
 
 type AwsConfig struct {
-	Region    string `default:"us-east-1"`
-	AccessID  string `envconfig:"ACCESS_KEY_ID"`
-	SecretKey string `envconfig:"SECRET_ACCESS_KEY"`
-	DynamoDB  *DynamoDB
-	Sqs       *Sqs
+	Region          string `default:"us-east-1"`
+	AccessKeyID     string `split_words:"true"`
+	SecretAccessKey string `split_words:"true"`
+	DynamoDB        *DynamoDB
+	Sqs             *SQS
 }
 
 type DynamoDB struct {
-	Endpoint string `envconfig:"ENDPOINT"`
+	Endpoint string
 }
 
-type Sqs struct {
-	QueueName string `envconfig:"QUEUE_NAME"`
-	Endpoint  string `envconfig:"ENDPOINT"`
+type SQS struct {
+	QueueName string
+	Endpoint  string
 }
 
 func NewConfig() *AwsConfig {
@@ -62,7 +62,7 @@ func (c *AwsConfig) GetAWSCfg() aws.Config {
 		context.TODO(),
 		config.WithRegion(c.Region),
 		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(c.AccessID, c.SecretKey, ""),
+			credentials.NewStaticCredentialsProvider(c.AccessKeyID, c.SecretAccessKey, ""),
 		),
 		config.WithEndpointResolverWithOptions(customResolver),
 	)
