@@ -15,11 +15,11 @@ type AwsConfig struct {
 	Region    string `default:"us-east-1"`
 	AccessID  string `envconfig:"ACCESS_KEY_ID"`
 	SecretKey string `envconfig:"SECRET_ACCESS_KEY"`
-	DynamoDb  *DynamoDb
+	DynamoDB  *DynamoDB
 	Sqs       *Sqs
 }
 
-type DynamoDb struct {
+type DynamoDB struct {
 	Endpoint string `envconfig:"ENDPOINT"`
 }
 

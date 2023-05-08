@@ -17,9 +17,8 @@ func (m *memoryEventStore) Save(_ context.Context, aggregateID string, records .
 		m.eventsByID[aggregateID] = History{}
 	}
 
-	history := append(m.eventsByID[aggregateID], records...)
-	sort.Sort(history)
-	m.eventsByID[aggregateID] = history
+	m.eventsByID[aggregateID] = append(m.eventsByID[aggregateID], records...)
+	sort.Sort(m.eventsByID[aggregateID])
 
 	return nil
 }

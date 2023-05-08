@@ -43,7 +43,6 @@ func (r *Repository) Load(ctx context.Context, aggregateID string) (Aggregate, e
 			eventType, _ := event.EventType()
 			return nil, fmt.Errorf("aggregate was unable to handle event, %v: %s", eventType, aggregationErr.Error())
 		}
-
 	}
 	return aggregate, nil
 }
