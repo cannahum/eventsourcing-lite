@@ -28,28 +28,28 @@ type Sqs struct {
 	Endpoint  string `envconfig:"ENDPOINT"`
 }
 
-var awsConf AwsConfig
-
-func init() {
-	envconfig.MustProcess("AWS_CONFIG", &awsConf)
+func NewConfig() *AwsConfig {
+	var conf AwsConfig
+	envconfig.MustProcess("AWS_CONFIG", &conf)
+	return &conf
 }
 
-func GetAWSCfg() aws.Config {
+func (c *AwsConfig) GetAWSCfg() aws.Config {
 	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if region == awsConf.Region {
+		if region == c.Region {
 			if service == dynamodb.ServiceID {
 				return aws.Endpoint{
 					PartitionID:       "aws",
-					URL:               awsConf.DynamoDb.Endpoint,
-					SigningRegion:     awsConf.Region,
+					URL:               c.DynamoDB.Endpoint,
+					SigningRegion:     c.Region,
 					HostnameImmutable: true,
 				}, nil
 			}
 			if service == sqs.ServiceID {
 				return aws.Endpoint{
 					PartitionID:       "aws",
-					URL:               awsConf.Sqs.Endpoint,
-					SigningRegion:     awsConf.Region,
+					URL:               c.Sqs.Endpoint,
+					SigningRegion:     c.Region,
 					HostnameImmutable: true,
 				}, nil
 			}
@@ -60,9 +60,9 @@ func GetAWSCfg() aws.Config {
 
 	cfg, err := config.LoadDefaultConfig(
 		context.TODO(),
-		config.WithRegion(awsConf.Region),
+		config.WithRegion(c.Region),
 		config.WithCredentialsProvider(
-			credentials.NewStaticCredentialsProvider(awsConf.AccessID, awsConf.SecretKey, ""),
+			credentials.NewStaticCredentialsProvider(c.AccessID, c.SecretKey, ""),
 		),
 		config.WithEndpointResolverWithOptions(customResolver),
 	)
