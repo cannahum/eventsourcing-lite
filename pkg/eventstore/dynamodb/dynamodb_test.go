@@ -8,7 +8,7 @@ import (
 
 	"github.com/cannahum/eventsourcing-lite/pkg/eventstore"
 	"github.com/cannahum/eventsourcing-lite/utils/testutils"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -18,8 +18,8 @@ const rangeKey = "version"
 var conf = testutils.NewConfig()
 
 func TestGetDynamoDBStore(t *testing.T) {
-	db := dynamodb.NewFromConfig(conf.GetAWSCfg())
-	tableName := "todo_es_table_test_" + uuid.NewV4().String()
+	db := dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg())
+	tableName := "todo_es_table_test_" + uuid.NewString()
 
 	// Create a fake table
 	testutils.CreateTestTable(tableName, hashKey, db)
