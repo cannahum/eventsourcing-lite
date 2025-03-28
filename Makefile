@@ -16,5 +16,8 @@ coverage:
 coverage_local:
 	godotenv -f ./.env go test ./...
 
-local_dynamodb:
-	docker run -p 8000:8000 amazon/dynamodb-local
+compose_local_env:
+	docker compose -f local/docker-compose.yaml up -d
+
+tear_down_local_env:
+	docker compose -f local/docker-compose.yaml down
