@@ -18,7 +18,7 @@ const rangeKey = "version"
 var conf = testutils.NewConfig()
 
 func TestGetDynamoDBStore(t *testing.T) {
-	db := dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg())
+	db := dynamodb.NewFromConfig(conf.GetAWSCfg())
 	tableName := "todo_es_table_test_" + uuid.NewString()
 
 	// Create a fake table
@@ -35,7 +35,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	})
 
 	t.Run("test Save function", func(ct *testing.T) {
-		aggID := uuid.NewV4().String()
+		aggID := uuid.NewString()
 		// Create a few records
 		records := []eventstore.Record{
 			{
@@ -49,7 +49,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	})
 
 	t.Run("test Save existing event (error)", func(ct *testing.T) {
-		aggID := uuid.NewV4().String()
+		aggID := uuid.NewString()
 		// Create a few records
 		records := []eventstore.Record{
 			{
@@ -83,7 +83,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	})
 
 	t.Run("test Save -> Load", func(ct *testing.T) {
-		aggID := uuid.NewV4().String()
+		aggID := uuid.NewString()
 		// Create a few records
 		records := []eventstore.Record{
 			{
@@ -100,7 +100,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	})
 
 	t.Run("test Save nothing", func(ct *testing.T) {
-		aggID := uuid.NewV4().String()
+		aggID := uuid.NewString()
 		// Create a few records
 		var records []eventstore.Record
 
@@ -112,7 +112,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	})
 
 	t.Run("test Save - over 25 items not permitted (error)", func(ct *testing.T) {
-		aggID := uuid.NewV4().String()
+		aggID := uuid.NewString()
 		// Create a few records
 		var records []eventstore.Record
 
@@ -128,7 +128,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	})
 
 	t.Run("test Save - items with duplicate version (error)", func(ct *testing.T) {
-		aggID := uuid.NewV4().String()
+		aggID := uuid.NewString()
 		// Create a few records
 		records := []eventstore.Record{
 			{
@@ -146,7 +146,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	})
 
 	t.Run("test Save -> Load multiple items", func(ct *testing.T) {
-		aggID := uuid.NewV4().String()
+		aggID := uuid.NewString()
 		// Create a few records
 		records := []eventstore.Record{
 			{
@@ -171,7 +171,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	})
 
 	t.Run("test Save -> Load partial items", func(ct *testing.T) {
-		aggID := uuid.NewV4().String()
+		aggID := uuid.NewString()
 		// Create a few records
 		records := []eventstore.Record{
 			{
