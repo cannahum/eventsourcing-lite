@@ -22,7 +22,7 @@ const rangeKey = "version"
 
 // Create an Amazon DynamoDB client.
 var conf = testutils.NewConfig()
-var db = dynamodb.NewFromConfig(conf.GetAWSCfg())
+var db = dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg())
 
 // MyTodo is a test object - implements Aggregate and CommandHandler interfaces
 type MyTodo struct {
@@ -158,7 +158,7 @@ func TestNew(t *testing.T) {
 	)
 	assert.NotNil(t, r)
 
-	dStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
+	dStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg()))
 	r = NewRepository(
 		reflect.TypeOf(MyTodo{}),
 		dStore,
@@ -174,7 +174,7 @@ func TestSave(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := localstore.GetLocalStore()
-	dynamoStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
+	dynamoStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg()))
 
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 
@@ -255,7 +255,7 @@ func TestLoad(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := localstore.GetLocalStore()
-	dynamoStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
+	dynamoStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg()))
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)
 	dynamoRepo := NewRepository(reflect.TypeOf(MyTodo{}), dynamoStore, serializer, nil)
@@ -391,7 +391,7 @@ func TestApply(t *testing.T) {
 	defer testutils.DestroyTestTable(tableName, db)
 
 	localStore := localstore.GetLocalStore()
-	dynamoStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
+	dynamoStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg()))
 
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)
