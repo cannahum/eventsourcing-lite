@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cannahum/eventsourcing-lite/eventstore"
+	"github.com/cannahum/eventsourcing-lite/pkg/eventstore"
 )
 
 type jsonEvent struct {

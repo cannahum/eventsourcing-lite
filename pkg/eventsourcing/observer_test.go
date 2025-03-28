@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cannahum/eventsourcing-lite/eventstore"
+	localstore "github.com/cannahum/eventsourcing-lite/pkg/eventstore/local"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
@@ -121,7 +121,7 @@ func (o *MyTodoFailingObserver) OnObserveFailed(_ context.Context, e error) {
 }
 
 func TestApplyObservers(t *testing.T) {
-	localStore := eventstore.GetLocalStore()
+	localStore := localstore.GetLocalStore()
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 
 	defaultObserver := MyTodoDefaultObserver{}
