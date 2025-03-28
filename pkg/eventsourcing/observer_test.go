@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	localstore "github.com/cannahum/eventsourcing-lite/pkg/eventstore/local"
-	uuid "github.com/satori/go.uuid"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -146,7 +146,7 @@ func TestApplyObservers(t *testing.T) {
 	assert.Equal(t, 0, doneObserver.howManyTimes)
 
 	// Create Room
-	var id = uuid.NewV4().String()
+	var id = uuid.NewString()
 
 	createCommand := &CreateTodo{
 		CommandModel: CommandModel{
