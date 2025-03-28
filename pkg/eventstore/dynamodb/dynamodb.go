@@ -1,4 +1,4 @@
-package eventstore
+package dynamodbstore
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/feature/dynamodb/attributevalue"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
+	"github.com/cannahum/eventsourcing-lite/pkg/eventstore"
 )
 
 // ConditionalCheckFailed is const for DB error
@@ -41,7 +42,7 @@ func GetDynamoDBStore(tableName, partitionKey, rangeKey string, db *dynamodb.Cli
 }
 
 // Load implements the EventStore interface and reads all events for a specific aggregateID
-func (s *DynamoDBStore) Load(ctx context.Context, aggregateID string, fromVersion, toVersion int) (History, error) {
+func (s *DynamoDBStore) Load(ctx context.Context, aggregateID string, fromVersion, toVersion int) (eventstore.History, error) {
 	input := &dynamodb.QueryInput{
 		TableName:      aws.String(s.tableName),
 		Select:         types.SelectAllAttributes,
@@ -68,12 +69,12 @@ func (s *DynamoDBStore) Load(ctx context.Context, aggregateID string, fromVersio
 		input.KeyConditionExpression = aws.String("#key = :key")
 	}
 
-	history := make(History, 0, toVersion)
+	history := make(eventstore.History, 0, toVersion)
 	out, err := s.api.Query(ctx, input)
 	if err != nil {
 		return nil, err
 	}
-	var records []Record
+	var records []eventstore.Record
 	err = attributevalue.UnmarshalListOfMaps(out.Items, &records)
 	if err != nil {
 		return nil, err
@@ -82,7 +83,7 @@ func (s *DynamoDBStore) Load(ctx context.Context, aggregateID string, fromVersio
 }
 
 // Save implements the EventStore interface and stores an event in DynamoDB
-func (s *DynamoDBStore) Save(ctx context.Context, aggregateID string, records ...Record) error {
+func (s *DynamoDBStore) Save(ctx context.Context, aggregateID string, records ...eventstore.Record) error {
 	if len(records) == 0 {
 		return nil
 	}
@@ -143,7 +144,7 @@ func (s *DynamoDBStore) Save(ctx context.Context, aggregateID string, records ..
 	return nil
 }
 
-func (s *DynamoDBStore) ensureIdempotent(ctx context.Context, aggregateID string, records ...Record) error {
+func (s *DynamoDBStore) ensureIdempotent(ctx context.Context, aggregateID string, records ...eventstore.Record) error {
 	if len(records) == 0 {
 		return nil
 	}
@@ -160,7 +161,7 @@ func (s *DynamoDBStore) ensureIdempotent(ctx context.Context, aggregateID string
 	recent := history[len(history)-len(records):]
 	fmt.Printf("equality: %t\n", reflect.DeepEqual(recent[0].Version, records[0].Version))
 	fmt.Printf("equality: %t\n", reflect.DeepEqual(recent[0].Data, records[0].Data))
-	if !reflect.DeepEqual(recent, History(records)) {
+	if !reflect.DeepEqual(recent, eventstore.History(records)) {
 		return errors.New(ConditionalCheckFailed)
 	}
 	return nil

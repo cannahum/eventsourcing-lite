@@ -1,4 +1,4 @@
-package eventstore
+package dynamodbstore
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 
+	"github.com/cannahum/eventsourcing-lite/pkg/eventstore"
 	"github.com/cannahum/eventsourcing-lite/utils/testutils"
 	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
@@ -30,13 +31,13 @@ func TestGetDynamoDBStore(t *testing.T) {
 	t.Run("test Load function", func(ct *testing.T) {
 		result, err := s.Load(ctx, "agg-id", 0, 0)
 		assert.Nil(t, err)
-		assert.Equal(t, History{}, result)
+		assert.Equal(t, eventstore.History{}, result)
 	})
 
 	t.Run("test Save function", func(ct *testing.T) {
 		aggID := uuid.NewV4().String()
 		// Create a few records
-		records := []Record{
+		records := []eventstore.Record{
 			{
 				Version: 1,
 				Data:    []byte("first data 1"),
@@ -50,14 +51,14 @@ func TestGetDynamoDBStore(t *testing.T) {
 	t.Run("test Save existing event (error)", func(ct *testing.T) {
 		aggID := uuid.NewV4().String()
 		// Create a few records
-		records := []Record{
+		records := []eventstore.Record{
 			{
 				Version: 1,
 				Data:    []byte("first data 1"),
 			},
 		}
 
-		competingRecords := []Record{
+		competingRecords := []eventstore.Record{
 			{
 				Version: 1,
 				Data:    []byte("some other data"),
@@ -73,7 +74,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 		err3 := s.Save(ctx, aggID, competingRecords...)
 		assert.NotNil(ct, err3)
 
-		competingRecords = append(competingRecords, Record{
+		competingRecords = append(competingRecords, eventstore.Record{
 			Version: 2,
 			Data:    []byte("new data"),
 		})
@@ -84,7 +85,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	t.Run("test Save -> Load", func(ct *testing.T) {
 		aggID := uuid.NewV4().String()
 		// Create a few records
-		records := []Record{
+		records := []eventstore.Record{
 			{
 				Version: 1,
 				Data:    []byte("first data 1"),
@@ -95,28 +96,28 @@ func TestGetDynamoDBStore(t *testing.T) {
 
 		readVersion, err := s.Load(ctx, aggID, 0, 0)
 		assert.Nil(ct, err)
-		assert.Equal(ct, History(records), readVersion)
+		assert.Equal(ct, eventstore.History(records), readVersion)
 	})
 
 	t.Run("test Save nothing", func(ct *testing.T) {
 		aggID := uuid.NewV4().String()
 		// Create a few records
-		var records []Record
+		var records []eventstore.Record
 
 		err := s.Save(ctx, aggID, records...)
 		assert.Nil(ct, err)
 
 		result, _ := s.Load(ctx, aggID, 0, 0)
-		assert.Equal(t, History{}, result)
+		assert.Equal(t, eventstore.History{}, result)
 	})
 
 	t.Run("test Save - over 25 items not permitted (error)", func(ct *testing.T) {
 		aggID := uuid.NewV4().String()
 		// Create a few records
-		var records []Record
+		var records []eventstore.Record
 
 		for i := 0; i < 30; i++ {
-			records = append(records, Record{
+			records = append(records, eventstore.Record{
 				Version: i + 1,
 				Data:    []byte("some data"),
 			})
@@ -129,7 +130,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	t.Run("test Save - items with duplicate version (error)", func(ct *testing.T) {
 		aggID := uuid.NewV4().String()
 		// Create a few records
-		records := []Record{
+		records := []eventstore.Record{
 			{
 				Version: 1,
 				Data:    []byte("first data"),
@@ -147,7 +148,7 @@ func TestGetDynamoDBStore(t *testing.T) {
 	t.Run("test Save -> Load multiple items", func(ct *testing.T) {
 		aggID := uuid.NewV4().String()
 		// Create a few records
-		records := []Record{
+		records := []eventstore.Record{
 			{
 				Version: 1,
 				Data:    []byte("first data"),
@@ -166,13 +167,13 @@ func TestGetDynamoDBStore(t *testing.T) {
 
 		readVersion, err := s.Load(ctx, aggID, 0, 0)
 		assert.Nil(ct, err)
-		assert.Equal(ct, History(records), readVersion)
+		assert.Equal(ct, eventstore.History(records), readVersion)
 	})
 
 	t.Run("test Save -> Load partial items", func(ct *testing.T) {
 		aggID := uuid.NewV4().String()
 		// Create a few records
-		records := []Record{
+		records := []eventstore.Record{
 			{
 				Version: 1,
 				Data:    []byte("first data"),
@@ -199,14 +200,14 @@ func TestGetDynamoDBStore(t *testing.T) {
 
 		readVersion, err := s.Load(ctx, aggID, 0, 0)
 		assert.Nil(ct, err)
-		assert.Equal(ct, History(records), readVersion)
+		assert.Equal(ct, eventstore.History(records), readVersion)
 
 		secondToFourth, err := s.Load(ctx, aggID, 2, 4)
 		assert.Nil(ct, err)
-		assert.Equal(ct, History(records[1:4]), secondToFourth)
+		assert.Equal(ct, eventstore.History(records[1:4]), secondToFourth)
 
 		thirdOnwards, err := s.Load(ctx, aggID, 3, 0)
 		assert.Nil(ct, err)
-		assert.Equal(ct, History(records[2:]), thirdOnwards)
+		assert.Equal(ct, eventstore.History(records[2:]), thirdOnwards)
 	})
 }
