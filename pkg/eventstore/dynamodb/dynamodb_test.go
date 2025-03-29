@@ -18,7 +18,7 @@ const rangeKey = "version"
 var conf = testutils.NewConfig()
 
 func TestGetDynamoDBStore(t *testing.T) {
-	db := dynamodb.NewFromConfig(conf.GetAWSCfg())
+	db := dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg())
 	tableName := "todo_es_table_test_" + uuid.NewString()
 
 	// Create a fake table
