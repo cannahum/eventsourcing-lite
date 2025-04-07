@@ -17,7 +17,7 @@ type PostgresConf struct {
 	Password     string
 	CredArn      string `envconfig:"cred_arn"`
 	SslMode      string `envconfig:"ssl_mode" default:"disable"`
-	dBConn       *sql.DB
+	DBConn       *sql.DB
 	postgresConn *sql.DB
 }
 
@@ -67,7 +67,7 @@ func (pg *PostgresConf) CreateTestDB() error {
 	if err = testDB.Ping(); err != nil {
 		return fmt.Errorf("failed to ping test DB %s: %w", pg.DBName, err)
 	}
-	pg.dBConn = testDB
+	pg.DBConn = testDB
 	return nil
 
 }
@@ -76,10 +76,10 @@ func (pg *PostgresConf) DropTestDB() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	// Disconnect before dropping
-	if pg.dBConn != nil {
-		_ = pg.dBConn.Close()
+	if pg.DBConn != nil {
+		_ = pg.DBConn.Close()
 	}
-	pg.dBConn = nil
+	pg.DBConn = nil
 	_, err := pg.postgresConn.ExecContext(ctx, fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, pg.DBName))
 	if err != nil {
 		return fmt.Errorf("failed to drop test database: %w", err)

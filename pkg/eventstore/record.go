@@ -1,9 +1,15 @@
 package eventstore
 
+import "time"
+
 // Record represents the event in serialized form
 type Record struct {
-	Version int
-	Data    []byte `dynamodbav:"event_data"`
+	ID        string
+	Version   int
+	EventType string
+	Data      []byte `dynamodbav:"event_data"`
+	Metadata  []byte
+	CreatedAt *time.Time
 }
 
 // History represents
