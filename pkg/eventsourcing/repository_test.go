@@ -8,10 +8,11 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/google/uuid"
 
-	"github.com/cannahum/eventsourcing-lite/eventstore"
+	dynamodbstore "github.com/cannahum/eventsourcing-lite/pkg/eventstore/dynamodb"
+	localstore "github.com/cannahum/eventsourcing-lite/pkg/eventstore/local"
 	"github.com/cannahum/eventsourcing-lite/utils/testutils"
-	uuid "github.com/satori/go.uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -21,7 +22,7 @@ const rangeKey = "version"
 
 // Create an Amazon DynamoDB client.
 var conf = testutils.NewConfig()
-var db = dynamodb.NewFromConfig(conf.GetAWSCfg())
+var db = dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg())
 
 // MyTodo is a test object - implements Aggregate and CommandHandler interfaces
 type MyTodo struct {
@@ -144,11 +145,11 @@ func (t *MyTodo) Apply(_ context.Context, command Command) ([]Event, error) {
 }
 
 func TestNew(t *testing.T) {
-	tableName := tableNamePrfx + uuid.NewV4().String()
+	tableName := tableNamePrfx + uuid.NewString()
 	testutils.CreateTestTable(tableName, hashKey, db)
 	defer testutils.DestroyTestTable(tableName, db)
 
-	store := eventstore.GetLocalStore()
+	store := localstore.GetLocalStore()
 	r := NewRepository(
 		reflect.TypeOf(MyTodo{}),
 		store,
@@ -157,7 +158,7 @@ func TestNew(t *testing.T) {
 	)
 	assert.NotNil(t, r)
 
-	dStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
+	dStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg()))
 	r = NewRepository(
 		reflect.TypeOf(MyTodo{}),
 		dStore,
@@ -168,12 +169,12 @@ func TestNew(t *testing.T) {
 }
 
 func TestSave(t *testing.T) {
-	tableName := tableNamePrfx + uuid.NewV4().String()
+	tableName := tableNamePrfx + uuid.NewString()
 	testutils.CreateTestTable(tableName, hashKey, db)
 	defer testutils.DestroyTestTable(tableName, db)
 
-	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
+	localStore := localstore.GetLocalStore()
+	dynamoStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg()))
 
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 
@@ -188,7 +189,7 @@ func TestSave(t *testing.T) {
 		})
 
 		t.Run("saving a single event", func(ct *testing.T) {
-			var id = uuid.NewV4().String()
+			var id = uuid.NewString()
 
 			todoCreatedEvent := TodoCreated{
 				Model: Model{
@@ -209,7 +210,7 @@ func TestSave(t *testing.T) {
 		})
 
 		t.Run("saving many events", func(ct *testing.T) {
-			var id = uuid.NewV4().String()
+			var id = uuid.NewString()
 			todoCreatedEvent := TodoCreated{
 				Model: Model{
 					ID:      id,
@@ -249,12 +250,12 @@ func TestSave(t *testing.T) {
 }
 
 func TestLoad(t *testing.T) {
-	tableName := tableNamePrfx + uuid.NewV4().String()
+	tableName := tableNamePrfx + uuid.NewString()
 	testutils.CreateTestTable(tableName, hashKey, db)
 	defer testutils.DestroyTestTable(tableName, db)
 
-	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
+	localStore := localstore.GetLocalStore()
+	dynamoStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg()))
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)
 	dynamoRepo := NewRepository(reflect.TypeOf(MyTodo{}), dynamoStore, serializer, nil)
@@ -268,7 +269,7 @@ func TestLoad(t *testing.T) {
 		})
 
 		t.Run("existent aggregate with multiple events", func(ct *testing.T) {
-			var id = uuid.NewV4().String()
+			var id = uuid.NewString()
 
 			todoCreatedEvent := TodoCreated{
 				Model: Model{
@@ -307,7 +308,7 @@ func TestLoad(t *testing.T) {
 		})
 
 		t.Run("serialization of unknown event (error)", func(ct *testing.T) {
-			var id = uuid.NewV4().String()
+			var id = uuid.NewString()
 
 			todoCreatedEvent := TodoCreated{
 				Model: Model{
@@ -349,7 +350,7 @@ func TestLoad(t *testing.T) {
 				nil,
 			)
 
-			var id = uuid.NewV4().String()
+			var id = uuid.NewString()
 
 			todoCreatedEvent := TodoCreated{
 				Model: Model{
@@ -385,12 +386,12 @@ func TestLoad(t *testing.T) {
 }
 
 func TestApply(t *testing.T) {
-	tableName := tableNamePrfx + uuid.NewV4().String()
+	tableName := tableNamePrfx + uuid.NewString()
 	testutils.CreateTestTable(tableName, hashKey, db)
 	defer testutils.DestroyTestTable(tableName, db)
 
-	localStore := eventstore.GetLocalStore()
-	dynamoStore := eventstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.GetAWSCfg()))
+	localStore := localstore.GetLocalStore()
+	dynamoStore := dynamodbstore.GetDynamoDBStore(tableName, hashKey, rangeKey, dynamodb.NewFromConfig(conf.AwsConfig.GetAWSCfg()))
 
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 	localRepo := NewRepository(reflect.TypeOf(MyTodo{}), localStore, serializer, nil)
@@ -399,7 +400,7 @@ func TestApply(t *testing.T) {
 	ctx := context.Background()
 	for _, repo := range []*Repository{localRepo, dynamoRepo} {
 		t.Run("non-existent aggregate - create new", func(ct *testing.T) {
-			var id = uuid.NewV4().String()
+			var id = uuid.NewString()
 
 			createCommand := &CreateTodo{
 				CommandModel: CommandModel{
@@ -469,7 +470,7 @@ func TestApply(t *testing.T) {
 		})
 
 		t.Run("invalid command (error)", func(ct *testing.T) {
-			var id = uuid.NewV4().String()
+			var id = uuid.NewString()
 
 			createCommand := &CreateTodo{
 				CommandModel: CommandModel{
@@ -494,7 +495,7 @@ func TestApply(t *testing.T) {
 		})
 
 		t.Run("command does not implement CommandHandler interface (error)", func(ct *testing.T) {
-			var id = uuid.NewV4().String()
+			var id = uuid.NewString()
 
 			createCommand := &CreateTodo{
 				CommandModel: CommandModel{

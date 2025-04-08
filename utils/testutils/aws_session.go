@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
-	"github.com/kelseyhightower/envconfig"
 )
 
 type AwsConfig struct {
@@ -26,12 +25,6 @@ type DynamoDB struct {
 type SQS struct {
 	QueueName string
 	Endpoint  string
-}
-
-func NewConfig() *AwsConfig {
-	var conf AwsConfig
-	envconfig.MustProcess("AWS_CONFIG", &conf)
-	return &conf
 }
 
 func (c *AwsConfig) GetAWSCfg() aws.Config {

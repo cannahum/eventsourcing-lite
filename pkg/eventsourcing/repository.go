@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"reflect"
 
-	"github.com/cannahum/eventsourcing-lite/eventstore"
+	"github.com/cannahum/eventsourcing-lite/pkg/eventstore"
 )
 
 // Repository is an object that knows how to serialize a specific type of entity.

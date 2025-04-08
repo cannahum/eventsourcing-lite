@@ -7,8 +7,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/cannahum/eventsourcing-lite/eventstore"
-	uuid "github.com/satori/go.uuid"
+	localstore "github.com/cannahum/eventsourcing-lite/pkg/eventstore/local"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -121,7 +121,7 @@ func (o *MyTodoFailingObserver) OnObserveFailed(_ context.Context, e error) {
 }
 
 func TestApplyObservers(t *testing.T) {
-	localStore := eventstore.GetLocalStore()
+	localStore := localstore.GetLocalStore()
 	serializer := NewJSONSerializer(TodoCreated{}, TodoDone{}, TodoUndone{})
 
 	defaultObserver := MyTodoDefaultObserver{}
@@ -146,7 +146,7 @@ func TestApplyObservers(t *testing.T) {
 	assert.Equal(t, 0, doneObserver.howManyTimes)
 
 	// Create Room
-	var id = uuid.NewV4().String()
+	var id = uuid.NewString()
 
 	createCommand := &CreateTodo{
 		CommandModel: CommandModel{

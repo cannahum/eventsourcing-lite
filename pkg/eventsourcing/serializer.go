@@ -1,7 +1,7 @@
 package eventsourcing
 
 import (
-	"github.com/cannahum/eventsourcing-lite/eventstore"
+	"github.com/cannahum/eventsourcing-lite/pkg/eventstore"
 )
 
 // Serializer converts between Events and Records
